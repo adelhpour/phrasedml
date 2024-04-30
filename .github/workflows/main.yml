@@ -195,6 +195,7 @@ jobs:
           -DCMAKE_C_COMPILER_LAUNCHER=${COMPILER_LAUNCHER} \
           -DCMAKE_CXX_COMPILER_LAUNCHER=${COMPILER_LAUNCHER} \
           -DCMAKE_INSTALL_PREFIX="${RUNNER_WORKSPACE}/install-phrasedml" \
+          ${PHRASEDML_DEPENDENCIES_INSTALL_PREFIX} \
           -DWITH_CHECK=ON \
           -DWITH_PYTHON=${{ matrix.platform.build_python }}
 
