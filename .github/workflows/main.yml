@@ -161,7 +161,7 @@ jobs:
           cd ${RUNNER_WORKSPACE}
           mkdir -p libroadrunner-deps-binaries
           cd libroadrunner-deps-binaries
-          curl -L "https://github.com/${{ matrix.libroadrunner_deps_owner }}/${{ matrix.libroadrunner_deps_repo }}/releases/download/v${{ matrix.libroadrunner_deps_release_version }}/${{ matrix.libroadrunner_deps_repo }}-${{ matrix.platform.os_name }}-${{ matrix.platform.build_type }}.zip" > libroadrunner-deps-${{ matrix.platform.name }}.zip
+          curl -L "https://github.com/${{ matrix.libroadrunner_deps_owner }}/${{ matrix.libroadrunner_deps_repo }}/releases/download/v${{ matrix.libroadrunner_deps_release_version }}/${{ matrix.libroadrunner_deps_repo }}-${{ matrix.platform.name }}.zip" > libroadrunner-deps-${{ matrix.platform.name }}.zip
           unzip -q libroadrunner-deps-${{ matrix.platform.name }}.zip -d libroadrunner-deps-${{ matrix.platform.name }}
           rm libroadrunner-deps-${{ matrix.platform.name }}.zip
           echo PHRASEDML_DEPENDENCIES_INSTALL_PREFIX="-DPHRASEDML_DEPENDENCIES_INSTALL_PREFIX=${RUNNER_WORKSPACE}/libroadrunner-deps-binaries/libroadrunner-deps-${{ matrix.platform.name }}" >> "${GITHUB_ENV}"
@@ -174,7 +174,7 @@ jobs:
           if [ "${{ matrix.platform.os_type }}" == 'macos' ]; then
             brew install check
           elif [ "${{ matrix.platform.os_type }}" == 'ubuntu' ]; then
-            sudo apt-get install -y check-dev
+            sudo apt-get install -y check
           elif [ "${{ matrix.platform.os_type }}" == 'windows' ]; then
             curl -L https://github.com/sys-bio/antimony/releases/download/libcheck/check-${{ matrix.platform.build_type }}.zip > check.zip
             unzip -q check.zip -d check
