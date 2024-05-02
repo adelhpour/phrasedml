@@ -49,19 +49,21 @@ jobs:
             os_name: ubuntu-latest
             container_image: quay.io/pypa/manylinux2014_x86_64
             build_type: Release
-            build_python: OFF
+            build_python: ON
           - name: manylinux2014-debug
             os_type: manylinux
             os_name: ubuntu-latest
             container_image: quay.io/pypa/manylinux2014_x86_64
             build_type: Debug
-            build_python: OFF
+            build_python: ON
         libroadrunner_deps_owner: [ "adelhpour" ]
         libroadrunner_deps_repo: [ "libroadrunner-deps" ]
         libroadrunner_deps_release_version: [ "2.1.1" ]
-        python_version:
-          - name: py310
-            version: "3.10"
+        python_version: ["3.11"]
+
+    runs-on: ${{ matrix.platform.os_name }}
+    container:
+      image: ${{ matrix.platform.container_image || '' }}
 
     runs-on: ${{ matrix.platform.os_name }}
     container:
@@ -142,7 +144,7 @@ jobs:
         if: matrix.platform.build_python == 'ON' && matrix.platform.os_type != 'manylinux'
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python_version.version }}
+          python-version: ${{ matrix.python_version }}
 
       - name: Setup Python for manylinux platforms
         if: matrix.platform.build_python == 'ON' && matrix.platform.os_type == 'manylinux'
@@ -151,18 +153,18 @@ jobs:
           cd ${RUNNER_WORKSPACE}
           yum update -y
           yum install -y gcc gcc openssl-devel bzip2-devel libffi-devel epel-release openssl11-devel
-          mkdir -p python${{ matrix.python_version.version }}
-          cd python${{ matrix.python_version.version }}
-          curl -L https://www.python.org/ftp/python/${{ matrix.python_version.version }}.0/Python-${{ matrix.python_version.version }}.0.tgz > python.tgz
+          mkdir -p python${{ matrix.python_version }}
+          cd python${{ matrix.python_version }}
+          curl -L https://www.python.org/ftp/python/${{ matrix.python_version }}.0/Python-${{ matrix.python_version }}.0.tgz > python.tgz
           tar -zxf python.tgz
           rm python.tgz
-          cd Python-${{ matrix.python_version.version }}.0
+          cd Python-${{ matrix.python_version }}.0
           sed -i 's/PKG_CONFIG openssl /PKG_CONFIG openssl11 /g' configure
           mkdir -p install-python
-          ./configure --enable-optimizations --enable-shared --prefix=${RUNNER_WORKSPACE}/python${{ matrix.python_version.version }}/install-python
+          ./configure --enable-optimizations --enable-shared --prefix=${RUNNER_WORKSPACE}/python${{ matrix.python_version }}/install-python
           make install
-          echo "${RUNNER_WORKSPACE}/python${{ matrix.python_version.version }}/install-python/bin" >> $GITHUB_PATH
-          echo "export PATH=${RUNNER_WORKSPACE}/python${{ matrix.python_version.version }}/install-python/bin:$PATH" >> $GITHUB_ENV
+          echo "${RUNNER_WORKSPACE}/python${{ matrix.python_version }}/install-python/bin" >> $GITHUB_PATH
+          echo "export PATH=${RUNNER_WORKSPACE}/python${{ matrix.python_version }}/install-python/bin:$PATH" >> $GITHUB_ENV
 
       - name: Download libRoadRunner dependencies binaries
         shell: bash
@@ -176,22 +178,33 @@ jobs:
           echo PHRASEDML_DEPENDENCIES_INSTALL_PREFIX="-DPHRASEDML_DEPENDENCIES_INSTALL_PREFIX=${RUNNER_WORKSPACE}/libroadrunner-deps-binaries/libroadrunner-deps-${{ matrix.platform.name }}" >> "${GITHUB_ENV}"
           echo "${RUNNER_WORKSPACE}/libroadrunner-deps-binaries/libroadrunner-deps-${{ matrix.platform.name }}" >> "${GITHUB_PATH}"
 
-      - name: Install check
+      - name: Install libcheck
         shell: bash
         run: |
           cd ${RUNNER_WORKSPACE}
-          if [ "${{ matrix.platform.os_type }}" == 'macos' ]; then
-            brew install check
-          elif [ "${{ matrix.platform.os_type }}" == 'ubuntu' ]; then
-            sudo apt-get install -y check
-          elif [ "${{ matrix.platform.os_type }}" == 'windows' ]; then
+          mkdir -p check
+          cd check
+          if [ "${{ matrix.platform.os_type }}" == 'windows' ]; then
             curl -L https://github.com/sys-bio/antimony/releases/download/libcheck/check-${{ matrix.platform.build_type }}.zip > check.zip
             unzip -q check.zip -d check
             rm check.zip
-            echo LIBCHECK_INCLUDE_DIR="-DLIBCHECK_INCLUDE_DIR=${RUNNER_WORKSPACE}/check/include" >> "${GITHUB_ENV}"
-            echo LIBCHECK_LIBRARY="-DLIBCHECK_LIBRARY=${RUNNER_WORKSPACE}/check/lib/libcheck.lib" >> "${GITHUB_ENV}"
-          elif [ "${{ matrix.platform.os_type }}" == 'manylinux' ]; then
-            yum install -y check-devel
+            echo LIBCHECK_INCLUDE_DIR="-DLIBCHECK_INCLUDE_DIR=${RUNNER_WORKSPACE}/check/check/include" >> "${GITHUB_ENV}"
+            echo LIBCHECK_LIBRARY="-DLIBCHECK_LIBRARY=${RUNNER_WORKSPACE}/check/check/lib/libcheck.lib" >> "${GITHUB_ENV}"
+          else
+            curl -L https://github.com/libcheck/check/releases/download/0.15.2/check-0.15.2.tar.gz > check.tar.gz
+            tar -zxf check.tar.gz
+            rm check.tar.gz
+            mkdir -p build-check
+            mkdir -p install-check
+            cd build-check
+            cmake -G "Ninja" -DCMAKE_INSTALL_PREFIX="${RUNNER_WORKSPACE}/check/install-check" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=${{ matrix.platform.arch }} ../check-0.15.2
+            cmake --build . --target install
+            echo LIBCHECK_INCLUDE_DIR="-DLIBCHECK_INCLUDE_DIR=${RUNNER_WORKSPACE}/check/install-check/include" >> "${GITHUB_ENV}"
+            if [ "${{ matrix.platform.os_type }}" == 'manylinux' ]; then
+              echo LIBCHECK_LIBRARY="-DLIBCHECK_LIBRARY=${RUNNER_WORKSPACE}/check/install-check/lib64/libcheck.so" >> "${GITHUB_ENV}"
+            else
+              echo LIBCHECK_LIBRARY="-DLIBCHECK_LIBRARY=${RUNNER_WORKSPACE}/check/install-check/lib/libcheck.a" >> "${GITHUB_ENV}"
+            fi
           fi
 
       - name: Create build directory
@@ -204,11 +217,11 @@ jobs:
           cd ${RUNNER_WORKSPACE}/build-phrasedml
           cmake $GITHUB_WORKSPACE \
           -G "Ninja" \
-          -DCMAKE_BUILD_TYPE=${{ matrix.platform.build_type }} \
-          -DCMAKE_OSX_ARCHITECTURES=${{ matrix.platform.arch }} \
           -DCMAKE_C_COMPILER_LAUNCHER=${COMPILER_LAUNCHER} \
           -DCMAKE_CXX_COMPILER_LAUNCHER=${COMPILER_LAUNCHER} \
-          -DCMAKE_INSTALL_PREFIX="${RUNNER_WORKSPACE}/install-phrasedml" \
+          -DCMAKE_BUILD_TYPE=${{ matrix.platform.build_type }} \
+          -DCMAKE_OSX_ARCHITECTURES=${{ matrix.platform.arch }} \
+          -DCMAKE_INSTALL_PREFIX="${RUNNER_WORKSPACE}/install-antimony" \
           ${PHRASEDML_DEPENDENCIES_INSTALL_PREFIX} \
           -DWITH_CHECK=ON \
           ${LIBCHECK_INCLUDE_DIR} \
