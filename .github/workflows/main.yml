@@ -217,15 +217,68 @@ jobs:
           -DCMAKE_CXX_COMPILER_LAUNCHER=${COMPILER_LAUNCHER} \
           -DCMAKE_BUILD_TYPE=${{ matrix.platform.build_type }} \
           -DCMAKE_OSX_ARCHITECTURES=${{ matrix.platform.arch }} \
-          -DCMAKE_INSTALL_PREFIX="${RUNNER_WORKSPACE}/install-antimony" \
+          -DCMAKE_INSTALL_PREFIX="${RUNNER_WORKSPACE}/install-phrasedml" \
           ${PHRASEDML_DEPENDENCIES_INSTALL_PREFIX} \
           -DWITH_CHECK=ON \
           ${LIBCHECK_INCLUDE_DIR} \
           ${LIBCHECK_LIBRARY} \
           -DWITH_PYTHON=${{ matrix.platform.build_python }}
 
-      - name: Build and Install PhrasedML
+      - name: Build and install PhrasedML
         shell: bash
         run: |
           cd ${RUNNER_WORKSPACE}/build-phrasedml
           cmake --build . --target install --config ${{ matrix.platform.build_type }}
+
+      - name: Run PhrasedML tests
+        if: matrix.platform.build_type == 'Release'
+        shell: bash
+        run: |
+          cd ${RUNNER_WORKSPACE}/build-phrasedml
+          ctest -C ${{ matrix.platform.build_type }} --output-on-failure --verbose --extra-verbose --progress
+
+      - name: Set artifacts path and name
+        shell: bash
+        run: |
+          cd ${RUNNER_WORKSPACE}
+          echo "artifacts_name=phrasedml-${{ matrix.platform.name }}" >> "${GITHUB_ENV}"
+          # we need to use relative path as actions/upload-artifact@v1 cannot find it on containerized runners
+          echo "artifacts_path=../install-phrasedml" >> "${GITHUB_ENV}"
+
+      - name: Upload PhrasedML artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{env.artifacts_name}}
+          path: ${{env.artifacts_path}}
+
+      - name: Create Python wheel artifacts
+        if: matrix.platform.build_type == 'Release' && matrix.platform.build_python == 'ON'
+        shell: bash
+        run: |
+          cd ${RUNNER_WORKSPACE}/install-phrasedml/bindings/python
+          if [ "${{ matrix.platform.os_type }}" == 'windows' ]; then
+            python -m pip install setuptools wheel
+            python setup.py bdist_wheel
+          elif [ "${{ matrix.platform.os_type }}" == 'manylinux' ]; then
+            python${{ matrix.python_version }} -m pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org setuptools wheel
+            python${{ matrix.python_version }} setup.py bdist_wheel
+          else
+            python${{ matrix.python_version }} -m pip install setuptools wheel
+            python${{ matrix.python_version }} setup.py bdist_wheel
+          fi
+
+      - name: Set Python wheel artifacts path and name
+        if: matrix.platform.build_type == 'Release' && matrix.platform.build_python == 'ON'
+        shell: bash
+        run: |
+          cd ${RUNNER_WORKSPACE}
+          echo "python_wheel_artifacts_name=phrasedml-${{ matrix.platform.name }}-py3-none-wheel-file" >> "${GITHUB_ENV}"
+          # we need to use relative path as actions/upload-artifact@v1 cannot find it on containerized runners
+          echo "python_wheel_artifacts_path=../install-phrasedml/bindings/python/dist" >> "${GITHUB_ENV}"
+
+      - name: Upload Python wheel artifacts
+        if: matrix.platform.build_type == 'Release' && matrix.platform.build_python == 'ON'
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{env.python_wheel_artifacts_name}}
+          path: ${{env.python_wheel_artifacts_path}}
