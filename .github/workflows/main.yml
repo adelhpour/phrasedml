@@ -56,14 +56,10 @@ jobs:
             container_image: quay.io/pypa/manylinux2014_x86_64
             build_type: Debug
             build_python: ON
-        libroadrunner_deps_owner: [ "adelhpour" ]
+        libroadrunner_deps_owner: [ "sys-bio" ]
         libroadrunner_deps_repo: [ "libroadrunner-deps" ]
-        libroadrunner_deps_release_version: [ "2.1.1" ]
-        python_version: ["3.11"]
-
-    runs-on: ${{ matrix.platform.os_name }}
-    container:
-      image: ${{ matrix.platform.container_image || '' }}
+        libroadrunner_deps_release_version: [ "v2.1.1" ]
+        python_version: [ "3.11" ]
 
     runs-on: ${{ matrix.platform.os_name }}
     container:
