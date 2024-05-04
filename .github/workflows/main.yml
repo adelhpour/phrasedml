@@ -321,7 +321,7 @@ jobs:
         run: |
           cd ${RUNNER_WORKSPACE}/install-phrasedml/bindings/python/dist
           if [ "${{ matrix.platform.os_type }}" == 'macos' ]; then
-            mv phrasedml*.whl $(echo libroadrunner*.whl | sed "s/universal2/${host_architecture}/g")
+            mv phrasedml*.whl $(echo phrasedml*.whl | sed "s/universal2/${host_architecture}/g")
           elif [ "${{ matrix.platform.os_type }}" == 'manylinux' ]; then
             mv phrasedml*.whl $(echo phrasedml*.whl | sed "s/linux/manylinux2014/g")
           fi
