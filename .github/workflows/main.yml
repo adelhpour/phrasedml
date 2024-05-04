@@ -324,7 +324,7 @@ jobs:
           elif [ "${{ matrix.platform.os_type }}" == 'manylinux' ]; then
             mv phrasedml*.whl $(echo phrasedml*.whl | sed "s/linux/manylinux2014/g")
           fi
-          python_version_number=$(echo "$input_version" | tr -d '.')
+          python_version_number=$(echo "${{ matrix.python_version }}" | tr -d '.')
           mv phrasedml*.whl $(echo phrasedml*.whl | sed "s/cp${python_version_number}-cp${python_version_number}/py3-none/g")
 
       - name: Set Python wheel artifacts path and name
